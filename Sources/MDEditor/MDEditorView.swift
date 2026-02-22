@@ -13,9 +13,9 @@ public struct MDEditorView: NSViewRepresentable {
 
     // MARK: - Properties
 
-    @Binding var text: String
-    var configuration: EditorConfiguration
-    @ObservedObject var proxy: MDEditorProxy
+    @Binding public var text: String
+    public var configuration: EditorConfiguration
+    @ObservedObject public var proxy: MDEditorProxy
     @Environment(\.colorScheme) var colorScheme
 
     // MARK: - Initializer
