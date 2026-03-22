@@ -9,25 +9,33 @@ FRAMEWORK_NAME="MDEditor"
 OUTPUT_DIR="./build"
 XCFRAMEWORK_PATH="${OUTPUT_DIR}/${FRAMEWORK_NAME}.xcframework"
 
-# 1. Clean previous builds
+# 1. Generate Xcode Project
+echo "Generating Xcode project using xcodegen..."
+if ! command -v xcodegen &> /dev/null; then
+    echo "xcodegen not found, please install it (brew install xcodegen)"
+    exit 1
+fi
+xcodegen generate
+
+# 2. Clean previous builds
 echo "Cleaning old builds..."
 rm -rf "${OUTPUT_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 
-# 2. Archive for macOS
+# 3. Archive for macOS
 echo "Archiving for macOS..."
 xcodebuild archive \
-    -workspace . \
+    -project "${FRAMEWORK_NAME}.xcodeproj" \
     -scheme "${FRAMEWORK_NAME}" \
-    -destination "platform=macOS" \
+    -destination "generic/platform=macOS" \
     -archivePath "${OUTPUT_DIR}/macOS.xcarchive" \
     SKIP_INSTALL=NO \
     BUILD_LIBRARY_FOR_DISTRIBUTION=YES
 
-# 3. Create XCFramework
+# 4. Create XCFramework
 echo "Creating XCFramework..."
 xcodebuild -create-xcframework \
-    -archive "${OUTPUT_DIR}/macOS.xcarchive" -framework "${FRAMEWORK_NAME}.framework" \
+    -framework "${OUTPUT_DIR}/macOS.xcarchive/Products/Library/Frameworks/${FRAMEWORK_NAME}.framework" \
     -output "${XCFRAMEWORK_PATH}"
 
 echo "Successfully created XCFramework at: ${XCFRAMEWORK_PATH}"

@@ -13,6 +13,7 @@ public enum MarkdownStandard: String, CaseIterable, Sendable, Identifiable {
     case markdownXL = "Markdown XL"
     case standard = "Standard"
     public var id: String { rawValue }
+    public static let allCases: [MarkdownStandard] = [.markdownXL, .standard]
 }
 
 /// 编辑器配置

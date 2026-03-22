@@ -1,0 +1,20 @@
+name: MDEditor
+options:
+  bundleIdPrefix: com.steveshi
+targets:
+  MDEditor:
+    type: framework
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/MDEditor
+    settings:
+      BUILD_LIBRARY_FOR_DISTRIBUTION: YES
+      SKIP_INSTALL: NO
+    dependencies:
+      - package: swift-markdown
+        product: Markdown
+packages:
+  swift-markdown:
+    url: https://github.com/swiftlang/swift-markdown.git
+    from: 0.4.0
