@@ -426,11 +426,4 @@ public final class MarkdownHighlighter: @unchecked Sendable {
         return nil
     }
 
-    private func applyImageStyle(
-        to storage: NSTextStorage, match: NSRegularExpression, range: NSRange, text: NSString
-    ) {
-        // 此方法已由 highlight 中的记录替换逻辑接管，保留仅作兼容性占位
-        storage.addAttributes(
-            [.font: syntaxFont, .foregroundColor: syntaxColor], range: range)
-    }
 }
