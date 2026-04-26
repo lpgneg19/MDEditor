@@ -17,7 +17,7 @@ MDEditor is a Markdown editor component for macOS and iOS built on TextKit 2, de
 Add the following dependency to your project:
 
 ```swift
-.package(url: "https://github.com/lpgneg19/MDEditor.git", branch: "main")
+.package(url: "https://github.com/SteveShi/MDEditor.git", branch: "main")
 ```
 
 ## License
