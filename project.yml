@@ -12,9 +12,16 @@ targets:
       BUILD_LIBRARY_FOR_DISTRIBUTION: YES
       SKIP_INSTALL: NO
     dependencies:
+      - package: MarkdownView
+        product: MarkdownView
+      - package: MarkdownView
+        product: MarkdownParser
       - package: swift-markdown
         product: Markdown
 packages:
+  MarkdownView:
+    url: https://github.com/SteveShi/MarkdownView.git
+    revision: e0cd01cb1fcaf47c2aeb14625065773846f7136a
   swift-markdown:
     url: https://github.com/swiftlang/swift-markdown.git
-    from: 0.4.0
+    from: 0.7.3

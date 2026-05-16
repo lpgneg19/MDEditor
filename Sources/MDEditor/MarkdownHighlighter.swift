@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import MarkdownParser
 
 /// Markdown 语法高亮器
 /// 使用正则表达式匹配 Markdown 语法并应用样式
@@ -206,6 +207,8 @@ public final class MarkdownHighlighter: @unchecked Sendable {
             }
         }
 
+        applyParserBackedStyles(to: textStorage, lineRange: lineRange)
+
         textStorage.endEditing()
     }
 
@@ -389,6 +392,184 @@ public final class MarkdownHighlighter: @unchecked Sendable {
     private func applyListMarkerStyle(to storage: NSTextStorage, match: NSTextCheckingResult) {
         let markerRange = match.range(at: 2)
         storage.addAttributes([.foregroundColor: syntaxColor], range: markerRange)
+    }
+
+    private func applyParserBackedStyles(to storage: NSTextStorage, lineRange: NSRange) {
+        let markdown = storage.string
+        guard !markdown.isEmpty else { return }
+
+        let parser = MarkdownParser()
+        let result = parser.parse(markdown)
+        applyBlockStyles(result.document, to: storage, markdown: markdown as NSString, lineRange: lineRange)
+        applyMathStyles(result.mathContext.values, to: storage, markdown: markdown as NSString, lineRange: lineRange)
+    }
+
+    private func applyBlockStyles(
+        _ blocks: [MarkdownBlockNode],
+        to storage: NSTextStorage,
+        markdown: NSString,
+        lineRange: NSRange
+    ) {
+        for block in blocks {
+            switch block {
+            case .table:
+                applyTableStyle(to: storage, markdown: markdown, lineRange: lineRange)
+            case .taskList:
+                applyTaskListStyle(to: storage, markdown: markdown, lineRange: lineRange)
+            case .codeBlock:
+                applyCodeBlockStyle(to: storage, markdown: markdown, lineRange: lineRange)
+            case let .blockquote(children):
+                applyBlockStyles(children, to: storage, markdown: markdown, lineRange: lineRange)
+            case let .bulletedList(_, items):
+                for item in items {
+                    applyBlockStyles(item.children, to: storage, markdown: markdown, lineRange: lineRange)
+                }
+            case let .numberedList(_, _, items):
+                for item in items {
+                    applyBlockStyles(item.children, to: storage, markdown: markdown, lineRange: lineRange)
+                }
+            default:
+                break
+            }
+        }
+    }
+
+    private func applyTableStyle(to storage: NSTextStorage, markdown: NSString, lineRange: NSRange) {
+        forEachLine(in: lineRange, markdown: markdown) { line, range in
+            guard line.contains("|") else { return }
+            storage.addAttributes(
+                [
+                    .font: NSFont.monospacedSystemFont(ofSize: baseFont.pointSize * 0.92, weight: .regular),
+                    .foregroundColor: textColor,
+                ],
+                range: range
+            )
+
+            if line.trimmingCharacters(in: .whitespaces).range(
+                of: #"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$"#,
+                options: .regularExpression
+            ) != nil {
+                storage.addAttributes([.foregroundColor: syntaxColor], range: range)
+            }
+        }
+    }
+
+    private func applyTaskListStyle(to storage: NSTextStorage, markdown: NSString, lineRange: NSRange) {
+        forEachLine(in: lineRange, markdown: markdown) { line, range in
+            guard let checkboxRange = line.range(
+                of: #"^(\s*[-*+]\s+)\[[ xX]\]"#,
+                options: .regularExpression
+            ) else { return }
+
+            let nsLine = line as NSString
+            let checkboxNSRange = NSRange(checkboxRange, in: line)
+            let absoluteCheckboxRange = NSRange(
+                location: range.location + checkboxNSRange.location,
+                length: checkboxNSRange.length
+            )
+            storage.addAttributes(
+                [
+                    .font: NSFont.monospacedSystemFont(ofSize: baseFont.pointSize, weight: .medium),
+                    .foregroundColor: linkColor,
+                ],
+                range: absoluteCheckboxRange
+            )
+
+            let isCompleted = nsLine.substring(with: checkboxNSRange).lowercased().contains("[x]")
+            if isCompleted {
+                let contentStart = checkboxNSRange.location + checkboxNSRange.length
+                let contentLength = max(0, nsLine.length - contentStart)
+                guard contentLength > 0 else { return }
+                storage.addAttributes(
+                    [
+                        .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                        .foregroundColor: syntaxColor,
+                    ],
+                    range: NSRange(location: range.location + contentStart, length: contentLength)
+                )
+            }
+        }
+    }
+
+    private func applyCodeBlockStyle(to storage: NSTextStorage, markdown: NSString, lineRange: NSRange) {
+        guard let regex = try? NSRegularExpression(
+            pattern: #"(?ms)^(```|~~~)[^\n]*\n.*?\n\1\s*$"#,
+            options: [.anchorsMatchLines]
+        ) else { return }
+
+        regex.enumerateMatches(
+            in: markdown as String,
+            options: [],
+            range: NSRange(location: 0, length: markdown.length)
+        ) { match, _, _ in
+            guard let match, NSIntersectionRange(match.range, lineRange).length > 0 else { return }
+            storage.addAttributes(
+                [
+                    .font: NSFont.monospacedSystemFont(ofSize: baseFont.pointSize * 0.92, weight: .regular),
+                    .foregroundColor: codeColor,
+                    .backgroundColor: codeBackground,
+                ],
+                range: match.range
+            )
+        }
+    }
+
+    private func applyMathStyles(
+        _ mathContents: Dictionary<Int, String>.Values,
+        to storage: NSTextStorage,
+        markdown: NSString,
+        lineRange: NSRange
+    ) {
+        for content in mathContents where !content.isEmpty {
+            let escapedContent = NSRegularExpression.escapedPattern(for: content)
+            let patterns = [
+                #"\$\$\s*\#(escapedContent)\s*\$\$"#,
+                #"\$\s*\#(escapedContent)\s*\$"#,
+                #"\\\[\s*\#(escapedContent)\s*\\\]"#,
+                #"\\\(\s*\#(escapedContent)\s*\\\)"#,
+            ]
+
+            for pattern in patterns {
+                guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+                regex.enumerateMatches(
+                    in: markdown as String,
+                    options: [],
+                    range: NSRange(location: 0, length: markdown.length)
+                ) { match, _, _ in
+                    guard let match, NSIntersectionRange(match.range, lineRange).length > 0 else { return }
+                    storage.addAttributes(
+                        [
+                            .font: NSFont.monospacedSystemFont(ofSize: baseFont.pointSize * 0.95, weight: .regular),
+                            .foregroundColor: linkColor,
+                            .backgroundColor: codeBackground,
+                        ],
+                        range: match.range
+                    )
+                }
+            }
+        }
+    }
+
+    private func forEachLine(
+        in lineRange: NSRange,
+        markdown: NSString,
+        _ body: (_ line: String, _ range: NSRange) -> Void
+    ) {
+        var location = lineRange.location
+        let upperBound = min(lineRange.location + lineRange.length, markdown.length)
+
+        while location < upperBound {
+            let currentLineRange = markdown.lineRange(
+                for: NSRange(location: location, length: 0)
+            )
+            let effectiveRange = NSIntersectionRange(currentLineRange, lineRange)
+            guard effectiveRange.length > 0 else {
+                location = currentLineRange.location + currentLineRange.length
+                continue
+            }
+            body(markdown.substring(with: effectiveRange), effectiveRange)
+            location = currentLineRange.location + currentLineRange.length
+        }
     }
 
     private func createImageAttachmentString(for match: NSTextCheckingResult, in text: NSString)

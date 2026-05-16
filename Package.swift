@@ -8,12 +8,18 @@ let package = Package(
         .library(name: "MDEditor", targets: ["MDEditor"])
     ],
     dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-markdown.git", from: "0.4.0")
+        .package(
+            url: "https://github.com/SteveShi/MarkdownView.git",
+            revision: "e0cd01cb1fcaf47c2aeb14625065773846f7136a"
+        ),
+        .package(url: "https://github.com/swiftlang/swift-markdown.git", from: "0.7.3")
     ],
     targets: [
         .target(
             name: "MDEditor",
             dependencies: [
+                .product(name: "MarkdownView", package: "MarkdownView"),
+                .product(name: "MarkdownParser", package: "MarkdownView"),
                 .product(name: "Markdown", package: "swift-markdown")
             ]
         )
